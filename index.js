@@ -9,6 +9,7 @@ let arrGrid = [];
 let edgeArr = [];
 let firstClick;
 let table = document.createElement('table');
+    let table2 = document.createElement('table2')
 let minesRemaining = document.getElementById('minesRemaining');
 let body = document.getElementById('body');
 let showNonEdge = document.getElementById('nonEdgeProbability');
@@ -16,7 +17,12 @@ let flagMode = document.getElementById('flagMode');
 let sec;
 let timer;
 let isWin;
+let bigH = document.getElementById('bigH');
+let totalH = 0;
 
+// consider create div class
+//get element by ID table
+// 
 // Return all current variables for debugging
 function getVariables() {
     console.log("numMines: " + numMines);
@@ -108,12 +114,13 @@ function generateGrid() {
     unflaggedMines = numMines;
     document.getElementById('timerBlock').style.display = 'block';
     minesRemaining.textContent = 'Mines Remaining: ' + numMines;
+    bigH.textContent = 'Total Entropy (in bits): ' + totalH ;
 
     // Initiate Grid
     for (let i = 0; i < numRows; i++) {
         mineGrid[i] = [];
         for (let j = 0; j < numColumns; j++) {
-            mineGrid[i][j] = {mine: false, open: false, neighbors: 0, flag: false, edge: false, edgeCount: 0, mineArr: 0, probability: -1};
+            mineGrid[i][j] = {mine: false, open: false, neighbors: 0, flag: false, edge: false, edgeCount: 0, mineArr: 0, probability: -1, p: -1, h: -1};
         }
     }
     makeTable(mineGrid, table);
@@ -127,6 +134,8 @@ function generateProbability(isAllProbability) {
         for (let j = 0; j < mineGrid[i].length; j++) {
             mineGrid[i][j].mineArr = 0;
             mineGrid[i][j].probability = -1;
+            mineGrid[i][j].p = -1;
+            mineGrid[i][j].h = -1
         }
     }
     hundredCount = 0;
@@ -180,6 +189,8 @@ function generateProbability(isAllProbability) {
     // Display table
     table.innerHTML = '';
     makeTable(mineGrid, table);
+    table2.innerHTML = '';
+    makeTable2(mineGrid, table2);
 }
 
 // Randomly place mines on grid
@@ -436,6 +447,7 @@ function revealFlagged() {
     // Display table
     table.innerHTML = '';
     makeTable(mineGrid, table);
+    
 
     // Detect win
     if (isWin == true) {
@@ -524,7 +536,82 @@ function makeTable(mineGrid, table) {
         isWin = true;
     }
 }
+//***just messing around here***
+//Generate a second HTML table from grid
+//Adding code to play with probability numbers
+function makeTable2(mineGrid, table2) {
+    let cellsOpen = 0;
+    totalH = 0;
+    for (let i = 0; i < mineGrid.length; i++) {
+        let row = document.createElement('tr');
+        for (let j = 0; j < mineGrid[i].length; j++) {
+            let cell = document.createElement('td');
+            cell.id = i + '_' + j;
+            if (mineGrid[i][j].open == false) {
+                if (flagMode.checked == true) {
+                    cell.addEventListener('click', flag);
+                }
+                else {
+                    cell.addEventListener('contextmenu', flag);
+                }
+                if (mineGrid[i][j].flag == false) {
+                    if (flagMode.checked == true) {
+                        cell.addEventListener('contextmenu', revealCell);
+                    }
+                    else {
+                        cell.addEventListener('click', revealCell);
+                    }
+                    cell.className = 'hidden' + flagMode.checked;
+                }
+            }
+            else {
+                cellsOpen++;
+                cell.addEventListener('contextmenu', preventMenu);
+            }
+            if (mineGrid[i][j].mine == false && mineGrid[i][j].open == true) {
+                if (mineGrid[i][j].neighbors > 0) {
+                    cell.addEventListener('click', revealFlagged);
+                    cell.textContent = mineGrid[i][j].neighbors;
+                    cell.className = mineGrid[i][j].neighbors;
+                }
+                else {
+                    cell.addEventListener('click', quickToggleFlagMode);
+                }
+            }
+            if (mineGrid[i][j].mine == true && mineGrid[i][j].open == true) {
+                cell.className = 'mine';
+            }
+            if (mineGrid[i][j].flag == true) {
+                cell.className = 'flag';
+            }
+            else if (mineGrid[i][j].probability >= 0) {
+                if (showNonEdge.checked == true) {
+                    mineGrid[i][j].p = mineGrid[i][j].probability/100;
+                    mineGrid[i][j].h = (-mineGrid[i][j].p * Math.log2(mineGrid[i][j].p));
+                    if (isNaN(mineGrid[i][j].h)){
+                        mineGrid[i][j].h = 0;
+                    } 
+                    totalH += mineGrid[i][j].h 
+                    bigH.textContent = 'Total Entropy (in bits): ' + totalH ;
+                    cell.textContent = mineGrid[i][j].h.toFixed(2);
+                    cell.className = 'hidden' + flagMode.checked;
+                }
+                else if (mineGrid[i][j].edge == true) {
+                    cell.textContent = mineGrid[i][j].probability;
+                    cell.className = 'hidden' + flagMode.checked;
+                }
+            }
+            row.appendChild(cell);
+        }
+    table.appendChild(row);
+    }
 
+    // Detect win
+    if (cellsOpen == numRows * numColumns - numMines) {
+        clearInterval(timer);
+        isWin = true;
+    }
+}
 // Recursively opens nearby cells that do not have mines nearby
 function revealNeighbors(mineGrid, i, j) {
     // Left
